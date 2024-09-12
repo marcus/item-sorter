@@ -28,10 +28,30 @@ const watcher = chokidar.watch(downloadsFolder, {
   depth: 0,  // Only monitor the top level of the Downloads folder, not subfolders
 });
 
+let fileBatch = [];
+let batchTimeout = null;
+const BATCH_INTERVAL = 3000; // 3 seconds for batch window
+
+// Function to process the batch of files
+const processBatch = () => {
+  if (fileBatch.length > 0) {
+    console.log(`Processing batch of ${fileBatch.length} files`);
+    FileSorter.sortFiles(fileBatch); // Process the batch using the modified sortFiles
+    fileBatch = []; // Reset the batch
+  }
+  clearTimeout(batchTimeout);
+  batchTimeout = null;
+};
+
 // Handle new files in Downloads
 watcher.on('add', (filePath) => {
   console.log(`New file detected: ${filePath}`);
-  FileSorter.sortFile(filePath);
+  fileBatch.push(filePath);
+
+  // If there's no timeout, start one to process the batch after a short delay
+  if (!batchTimeout) {
+    batchTimeout = setTimeout(processBatch, BATCH_INTERVAL);
+  }
 });
 
 // Handle new directories
@@ -46,6 +66,8 @@ const checkRecentsForOldFiles = () => {
       console.error(`Error reading Recents folder: ${err}`);
       return;
     }
+
+    const oldFilesBatch = [];
 
     files.forEach(file => {
       const filePath = path.join(recentsFolder, file);
@@ -65,10 +87,16 @@ const checkRecentsForOldFiles = () => {
         // If file is older than 3 days, move it to AI Library
         if (fileAge > threeDays) {
           console.log(`File ${file} is older than 3 days. Moving to AI Library...`);
-          FileSorter.sortFile(filePath);  // Use the existing sortFile logic
+          oldFilesBatch.push(filePath);
         }
       });
     });
+
+    // Process old files as a batch if there are any
+    if (oldFilesBatch.length > 0) {
+      console.log(`Processing batch of ${oldFilesBatch.length} old files from Recents folder`);
+      FileSorter.sortFiles(oldFilesBatch); // Use the batch processing method
+    }
   });
 };
 

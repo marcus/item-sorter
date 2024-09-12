@@ -2,29 +2,30 @@ const axios = require('axios');
 require('dotenv').config();
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-3.5-turbo';
 
-// Function to get file categorization suggestion from ChatGPT 4-turbo
-const suggestFileCategory = async (fileName, existingFolders) => {
+// Function to get file categorization suggestions from ChatGPT for multiple files
+const suggestFileCategories = async (fileNames, existingFolders) => {
   try {
     const existingFoldersList = existingFolders.join(', ');
+    const fileList = fileNames.join(', ');
+    console.log("Sending files", fileList)
 
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
-        model: 'gpt-4-turbo',
+        model: OPENAI_MODEL,
         messages: [
           {
             role: 'system',
-            content: 'You are an assistant that helps organize files by suggesting appropriate categories based on file names. If applicable, please try to match the file to one of the existing folders rather than creating a new folder but do not over-optimize, meaning images should not go in an Books folder or pdfs should not be put into a generic Documents folder. It is of utmost importance that you ONLY respond with a single folder name as the folder will be created based in the operating system based on your response. The folder name should be at most 5 words. Use fairly generic folder names, for example for a file called 4runner.pdf, put suggest the folder Vehicles or for a file called The Seven Expectations of Great Managing use the folder Business Articles this is to prevent excessive folder creation. If a file is a generic screenshot, use a folder called Screenshots. Do not use any preliminary description or return any text after the foldername.'
+            content: 'You are an assistant that helps organize files by suggesting appropriate folders based on file names. If applicable, please try to match the file to one of the existing folders rather than creating a new folder, but do not over-optimize. For example, images should not go in a Books folder, and PDFs should not be put into a generic Documents folder. It is of utmost importance that you ONLY respond with a single folder name per file, as the folder will be created based on your response. The folder name should be at most 5 words. Use fairly generic folder names. For example, for a file called 4runner.pdf, suggest the folder "Vehicles." For a file called The Seven Expectations of Great Managing, use the folder "Business Articles" to prevent excessive folder creation. If a file is a generic screenshot, use a folder called "Screenshots." Do not provide any preliminary description or return any text after the folder name. Respond in this exact format: filename: foldername with a newline between each file and folder. You MUST respond with a folder for each and every file and the response must be in that exact format'
           },
           {
             role: 'user',
-            content: existingFolders.includes('No existing folders')
-              ? `There are no existing folders. Suggest a new category for this file: ${fileName}`
-              : `Here are the existing folders: ${existingFoldersList}. Suggest a category for this file: ${fileName}`
+            content: `Here are the files: ${fileList}. Here are the existing folders: ${existingFoldersList}. Please suggest a category for each file.`
           }
         ],
-        max_tokens: 100
+        max_tokens: 200
       },
       {
         headers: {
@@ -37,18 +38,18 @@ const suggestFileCategory = async (fileName, existingFolders) => {
     // Log the full response for debugging
     console.log(`Full ChatGPT response: ${JSON.stringify(response.data.choices[0].message.content)}`);
 
-    // Extract the first 1-3 words as the category suggestion, ignoring full sentences
-    let categorySuggestion = response.data.choices[0].message.content.trim();
+    // Parse the response: it should be in the format "filename: foldername\n"
+    const lines = response.data.choices[0].message.content.trim().split('\n');
+    const categories = lines.map(line => {
+      const [fileName, folderName] = line.split(':').map(part => part.trim());
+      return { fileName, folderName };
+    });
 
-    // Use regex to grab the first meaningful part, stopping at punctuation or stopwords
-    categorySuggestion = categorySuggestion.match(/^[A-Za-z\s]+/)[0];  // Extract first few meaningful words
-    console.log(`ChatGPT suggested category: ${categorySuggestion}`);
-
-    return categorySuggestion;
+    return categories;
   } catch (error) {
     console.error('Error communicating with ChatGPT API:', error);
-    return null;
+    return fileNames.map(() => null); // Return null for each file if an error occurs
   }
 };
 
-module.exports = { suggestFileCategory };
+module.exports = { suggestFileCategories };
