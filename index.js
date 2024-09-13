@@ -21,6 +21,16 @@ args.forEach(arg => {
   }
 });
 
+// Ensure the folders exist before monitoring
+const ensureFolderExists = (folder) => {
+  if (!fs.existsSync(folder)) {
+    fs.mkdirSync(folder, { recursive: true });
+    console.log(`Created folder: ${folder}`);
+  }
+};
+ensureFolderExists(recentsFolder);
+ensureFolderExists(aiLibraryFolder);
+
 // Initialize watcher for the main Downloads folder
 const watcher = chokidar.watch(downloadsFolder, {
   persistent: true,
@@ -36,7 +46,11 @@ const BATCH_INTERVAL = 3000; // 3 seconds for batch window
 const processBatch = () => {
   if (fileBatch.length > 0) {
     console.log(`Processing batch of ${fileBatch.length} files`);
-    FileSorter.sortFiles(fileBatch); // Process the batch using the modified sortFiles
+    try {
+      FileSorter.sortFiles(fileBatch); // Process the batch using the modified sortFiles
+    } catch (error) {
+      console.error(`Error processing batch: ${error}`);
+    }
     fileBatch = []; // Reset the batch
   }
   clearTimeout(batchTimeout);
@@ -95,7 +109,11 @@ const checkRecentsForOldFiles = () => {
     // Process old files as a batch if there are any
     if (oldFilesBatch.length > 0) {
       console.log(`Processing batch of ${oldFilesBatch.length} old files from Recents folder`);
-      FileSorter.sortFiles(oldFilesBatch); // Use the batch processing method
+      try {
+        FileSorter.sortFiles(oldFilesBatch); // Use the batch processing method
+      } catch (error) {
+        console.error(`Error processing old files batch: ${error}`);
+      }
     }
   });
 };

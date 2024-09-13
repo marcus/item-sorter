@@ -9,7 +9,7 @@ const suggestFileCategories = async (fileNames, existingFolders) => {
   try {
     const existingFoldersList = existingFolders.join(', ');
     const fileList = fileNames.join(', ');
-    console.log("Sending files", fileList)
+    console.log("Sending files", fileList);
 
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
@@ -25,7 +25,7 @@ const suggestFileCategories = async (fileNames, existingFolders) => {
             content: `Here are the files: ${fileList}. Here are the existing folders: ${existingFoldersList}. Please suggest a category for each file.`
           }
         ],
-        max_tokens: 200
+        max_tokens: 1000
       },
       {
         headers: {
@@ -38,7 +38,7 @@ const suggestFileCategories = async (fileNames, existingFolders) => {
     // Log the full response for debugging
     console.log(`Full ChatGPT response: ${JSON.stringify(response.data.choices[0].message.content)}`);
 
-    // Parse the response: it should be in the format "filename: foldername\n"
+    // Parse the response: it should be in the format "filename: foldername"
     const lines = response.data.choices[0].message.content.trim().split('\n');
     const categories = lines.map(line => {
       const [fileName, folderName] = line.split(':').map(part => part.trim());

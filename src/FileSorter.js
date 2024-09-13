@@ -9,7 +9,7 @@ let aiLibraryFolder = path.join(process.env.HOME, 'Downloads', 'AI Library');
 // Sanitize folder names to remove invalid characters and capitalize words
 const sanitizeFolderName = (name) => {
   return name
-    .replace(/[<>:"/\\|?*&'"]/g, '') 
+    .replace(/[<>:"/\|?*&'"]/g, '') 
     .trim()
     .split(' ')
     .slice(0, 5)
@@ -23,12 +23,18 @@ const ensureFoldersExist = () => {
   if (!fs.existsSync(aiLibraryFolder)) fs.mkdirSync(aiLibraryFolder);
 };
 
+// Utility function to split array into chunks of 10
+const chunkArray = (array, chunkSize) => {
+  const result = [];
+  for (let i = 0; i < array.length; i += chunkSize) {
+    result.push(array.slice(i, i + chunkSize));
+  }
+  return result;
+};
+
 // Sort files based on the creation time and category suggestions from ChatGPT
 const sortFiles = async (filePaths) => {
   ensureFoldersExist();
-
-  // Get file names
-  const fileNames = filePaths.map(filePath => path.basename(filePath));
 
   // Get existing folders from AI Library
   const existingFolders = fs.readdirSync(aiLibraryFolder).filter(item => {
@@ -38,34 +44,51 @@ const sortFiles = async (filePaths) => {
   // If no existing folders, provide a default message
   const folderList = existingFolders.length > 0 ? existingFolders : ['No existing folders'];
 
-  // Get categories from ChatGPT for all files
-  const suggestedCategories = await suggestFileCategories(fileNames, folderList);
+  // Split file paths into batches of 10
+  const fileBatches = chunkArray(filePaths, 10);
 
-  // Sort files based on ChatGPT's suggestions
-  filePaths.forEach((filePath) => {
-    const fileName = path.basename(filePath);
-    const suggestion = suggestedCategories.find(item => item.fileName === fileName);
+  // Process each batch
+  for (const batch of fileBatches) {
+    const fileNames = batch.map(filePath => path.basename(filePath));
 
-    if (suggestion && suggestion.folderName) {
-      const sanitizedCategory = sanitizeFolderName(suggestion.folderName);
+    console.log(`Sending batch of ${fileNames.length} files: ${fileNames.join(', ')}`);
 
-      const folderToUse = existingFolders.find(folder => folder.toLowerCase() === sanitizedCategory.toLowerCase()) || sanitizedCategory;
+    // Get categories from ChatGPT for the current batch
+    const suggestedCategories = await suggestFileCategories(fileNames, folderList);
 
-      const categoryFolder = path.join(aiLibraryFolder, folderToUse);
-      if (!existingFolders.includes(folderToUse) && !fs.existsSync(categoryFolder)) {
-        console.log(`Creating folder: ${categoryFolder}`);
-        fs.mkdirSync(categoryFolder);
+    // Sort files based on ChatGPT's suggestions
+    for (const filePath of batch) {
+      const fileName = path.basename(filePath);
+      const suggestion = suggestedCategories.find(item => item.fileName === fileName);
+
+      if (suggestion && suggestion.folderName) {
+        const sanitizedCategory = sanitizeFolderName(suggestion.folderName);
+
+        const folderToUse = existingFolders.find(folder => folder.toLowerCase() === sanitizedCategory.toLowerCase()) || sanitizedCategory;
+
+        const categoryFolder = path.join(aiLibraryFolder, folderToUse);
+        if (!existingFolders.includes(folderToUse) && !fs.existsSync(categoryFolder)) {
+          console.log(`Creating folder: ${categoryFolder}`);
+          try {
+            fs.mkdirSync(categoryFolder);
+          } catch (err) {
+            console.error(`Error creating folder: ${err}`);
+            continue;
+          }
+        }
+
+        const destination = path.join(categoryFolder, path.basename(filePath));
+        try {
+          await fs.promises.rename(filePath, destination);
+          console.log(`Moved to AI Library under "${folderToUse}": ${filePath}`);
+        } catch (err) {
+          console.error(`Error moving file: ${err}`);
+        }
+      } else {
+        console.log(`Could not get a suggestion for: ${filePath}`);
       }
-
-      const destination = path.join(categoryFolder, path.basename(filePath));
-      fs.rename(filePath, destination, (err) => {
-        if (err) console.error(`Error moving file: ${err}`);
-        else console.log(`Moved to AI Library under "${folderToUse}": ${filePath}`);
-      });
-    } else {
-      console.log(`Could not get a suggestion for: ${filePath}`);
     }
-  });
+  }
 };
 
 module.exports = { sortFiles };

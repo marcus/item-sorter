@@ -6,6 +6,12 @@ const FileSorter = require('./FileSorter');
 // Path to the Downloads folder
 const DOWNLOADS_FOLDER = path.join(process.env.HOME, 'Downloads');
 
+// Ensure the folder exists before monitoring
+if (!fs.existsSync(DOWNLOADS_FOLDER)) {
+  fs.mkdirSync(DOWNLOADS_FOLDER, { recursive: true });
+  console.log(`Created folder: ${DOWNLOADS_FOLDER}`);
+}
+
 // Initialize watcher
 const watcher = chokidar.watch(DOWNLOADS_FOLDER, {
   persistent: true,
@@ -24,7 +30,11 @@ const BATCH_INTERVAL = 3000; // 3 seconds for batch window
 const processBatch = () => {
   if (fileBatch.length > 0) {
     console.log(`Processing batch of ${fileBatch.length} files`);
-    FileSorter.sortFiles(fileBatch); // Process batch of files
+    try {
+      FileSorter.sortFiles(fileBatch); // Process batch of files
+    } catch (error) {
+      console.error(`Error processing batch: ${error}`);
+    }
     fileBatch = [];
   }
   clearTimeout(batchTimeout);
