@@ -34,8 +34,8 @@ ensureFolderExists(aiLibraryFolder);
 // Initialize watcher for the main Downloads folder
 const watcher = chokidar.watch(downloadsFolder, {
   persistent: true,
-  ignoreInitial: true, // Ignore existing files on start
-  depth: 0,  // Only monitor the top level of the Downloads folder, not subfolders
+  ignoreInitial: true,
+  depth: 0,
 });
 
 let fileBatch = [];
@@ -47,7 +47,7 @@ const processBatch = () => {
   if (fileBatch.length > 0) {
     console.log(`Processing batch of ${fileBatch.length} files`);
     try {
-      FileSorter.sortFiles(fileBatch); // Process the batch using the modified sortFiles
+      FileSorter.sortFiles(fileBatch, recentsFolder); // Process the batch using the modified sortFiles
     } catch (error) {
       console.error(`Error processing batch: ${error}`);
     }
@@ -85,7 +85,7 @@ const checkRecentsForOldFiles = () => {
 
     files.forEach(file => {
       const filePath = path.join(recentsFolder, file);
-      
+
       // Ignore .DS_Store or other hidden files
       if (file === '.DS_Store' || fs.statSync(filePath).isDirectory()) return;
 
@@ -110,7 +110,7 @@ const checkRecentsForOldFiles = () => {
     if (oldFilesBatch.length > 0) {
       console.log(`Processing batch of ${oldFilesBatch.length} old files from Recents folder`);
       try {
-        FileSorter.sortFiles(oldFilesBatch); // Use the batch processing method
+        FileSorter.sortFiles(oldFilesBatch, aiLibraryFolder); // Move the old files to the AI Library
       } catch (error) {
         console.error(`Error processing old files batch: ${error}`);
       }

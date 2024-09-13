@@ -33,7 +33,7 @@ const chunkArray = (array, chunkSize) => {
 };
 
 // Sort files based on the creation time and category suggestions from ChatGPT
-const sortFiles = async (filePaths) => {
+const sortFiles = async (filePaths, targetFolder) => {
   ensureFoldersExist();
 
   // Get existing folders from AI Library
@@ -51,18 +51,32 @@ const sortFiles = async (filePaths) => {
   for (const batch of fileBatches) {
     const fileNames = batch.map(filePath => path.basename(filePath));
 
-    console.log(`Sending batch of ${fileNames.length} files: ${fileNames.join(', ')}`);
+    console.log(`Processing batch of ${fileNames.length} files: ${fileNames.join(', ')}`);
 
-    // Get categories from ChatGPT for the current batch
-    const suggestedCategories = await suggestFileCategories(fileNames, folderList);
-
-    // Sort files based on ChatGPT's suggestions
     for (const filePath of batch) {
       const fileName = path.basename(filePath);
-      const suggestion = suggestedCategories.find(item => item.fileName === fileName);
 
-      if (suggestion && suggestion.folderName) {
-        const sanitizedCategory = sanitizeFolderName(suggestion.folderName);
+      // Check if the file is younger than 72 hours
+      const stats = fs.statSync(filePath);
+      const fileAge = Date.now() - stats.birthtimeMs;
+      const threeDays = 3 * 24 * 60 * 60 * 1000;
+
+      if (fileAge <= threeDays) {
+        console.log(`File ${fileName} is less than 72 hours old. Moving to Recents.`);
+        const destination = path.join(recentsFolder, path.basename(filePath));
+        try {
+          await fs.promises.rename(filePath, destination);
+          console.log(`Moved ${filePath} to Recents.`);
+        } catch (err) {
+          console.error(`Error moving file to Recents: ${err}`);
+        }
+        continue;  // Skip categorizing since it's within 72 hours
+      }
+
+      // If the file is older than 72 hours, categorize and move it to AI Library
+      const suggestion = await suggestFileCategories([fileName], folderList);
+      if (suggestion.length && suggestion[0].folderName) {
+        const sanitizedCategory = sanitizeFolderName(suggestion[0].folderName);
 
         const folderToUse = existingFolders.find(folder => folder.toLowerCase() === sanitizedCategory.toLowerCase()) || sanitizedCategory;
 
@@ -80,9 +94,9 @@ const sortFiles = async (filePaths) => {
         const destination = path.join(categoryFolder, path.basename(filePath));
         try {
           await fs.promises.rename(filePath, destination);
-          console.log(`Moved to AI Library under "${folderToUse}": ${filePath}`);
+          console.log(`Moved ${filePath} to AI Library under "${folderToUse}".`);
         } catch (err) {
-          console.error(`Error moving file: ${err}`);
+          console.error(`Error moving file to AI Library: ${err}`);
         }
       } else {
         console.log(`Could not get a suggestion for: ${filePath}`);
