@@ -1,3 +1,4 @@
+// ./src/FileSorter.js
 const path = require('path');
 const fs = require('fs');
 const { suggestFileCategories } = require('./ChatGPTService');
@@ -40,6 +41,36 @@ const sortFiles = async (filePaths, recentsFolderPath, aiLibraryFolderPath) => {
 
   ensureFoldersExist();
 
+  // Split files into recent and old
+  const recentFiles = [];
+  const oldFiles = [];
+
+  for (const filePath of filePaths) {
+    if (isFileRecent(filePath)) {
+      recentFiles.push(filePath);
+    } else {
+      oldFiles.push(filePath);
+    }
+  }
+
+  // Move recent files directly to Recents folder without categorization
+  for (const filePath of recentFiles) {
+    const fileName = path.basename(filePath);
+    const destination = path.join(recentsFolder, fileName);
+    try {
+      await fs.promises.rename(filePath, destination);
+      console.log(`Moved recent file ${fileName} to Recents folder.`);
+    } catch (err) {
+      console.error(`Error moving recent file ${fileName} to Recents folder: ${err}`);
+    }
+  }
+
+  // If there are old files, proceed with categorization
+  if (oldFiles.length === 0) {
+    console.log('No old files to categorize.');
+    return;
+  }
+
   // Get existing folders from AI Library
   const existingFolders = fs.readdirSync(aiLibraryFolder).filter(item => {
     return item !== '.DS_Store' && fs.statSync(path.join(aiLibraryFolder, item)).isDirectory();
@@ -48,15 +79,15 @@ const sortFiles = async (filePaths, recentsFolderPath, aiLibraryFolderPath) => {
   // If no existing folders, provide a default message
   const folderList = existingFolders.length > 0 ? existingFolders : ['No existing folders'];
 
-  // Split file paths into batches of 10
-  const fileBatches = chunkArray(filePaths, 10);
+  // Split old files into batches of 10
+  const fileBatches = chunkArray(oldFiles, 10);
 
   for (const batch of fileBatches) {
     const fileNames = batch.map(filePath => path.basename(filePath));
 
-    console.log(`Processing batch of ${fileNames.length} files: ${fileNames.join(', ')}`);
+    console.log(`Processing batch of ${fileNames.length} old files: ${fileNames.join(', ')}`);
 
-    // Categorize files in batch
+    // Categorize old files in batch
     let categories;
     try {
       categories = await suggestFileCategories(fileNames, folderList);
@@ -79,22 +110,18 @@ const sortFiles = async (filePaths, recentsFolderPath, aiLibraryFolderPath) => {
 
       // Determine destination folder
       let destinationFolder;
-      if (isFileRecent(filePath)) {
-        destinationFolder = recentsFolder;
-      } else {
-        // Use existing folder or create a new one
-        const folderToUse = existingFolders.find(folder => folder.toLowerCase() === sanitizedCategory.toLowerCase()) || sanitizedCategory;
-        destinationFolder = path.join(aiLibraryFolder, folderToUse);
+      // Use existing folder or create a new one
+      const folderToUse = existingFolders.find(folder => folder.toLowerCase() === sanitizedCategory.toLowerCase()) || sanitizedCategory;
+      destinationFolder = path.join(aiLibraryFolder, folderToUse);
 
-        if (!fs.existsSync(destinationFolder)) {
-          console.log(`Creating folder: ${destinationFolder}`);
-          try {
-            fs.mkdirSync(destinationFolder, { recursive: true });
-            existingFolders.push(folderToUse); // Update existing folders
-          } catch (err) {
-            console.error(`Error creating folder "${destinationFolder}": ${err}`);
-            continue;
-          }
+      if (!fs.existsSync(destinationFolder)) {
+        console.log(`Creating folder: ${destinationFolder}`);
+        try {
+          fs.mkdirSync(destinationFolder, { recursive: true });
+          existingFolders.push(folderToUse); // Update existing folders
+        } catch (err) {
+          console.error(`Error creating folder "${destinationFolder}": ${err}`);
+          continue;
         }
       }
 

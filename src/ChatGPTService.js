@@ -1,3 +1,4 @@
+// ./src/ChatGPTService.js
 const axios = require('axios');
 require('dotenv').config();
 
@@ -9,7 +10,7 @@ const suggestFileCategories = async (fileNames, existingFolders) => {
   try {
     const existingFoldersList = existingFolders.join(', ');
     const fileList = fileNames.join(', ');
-    console.log("Sending files", fileList);
+    console.log("Sending files for categorization:", fileList);
 
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
@@ -57,7 +58,7 @@ const suggestFileCategories = async (fileNames, existingFolders) => {
     }));
   } catch (error) {
     console.error('Error communicating with ChatGPT API:', error.response ? error.response.data : error.message);
-    return fileNames.map(() => ({ fileName: null, folderName: null })); // Return null for each file if an error occurs
+    return fileNames.map(fileName => ({ fileName, folderName: null })); // Return null for each file if an error occurs
   }
 };
 

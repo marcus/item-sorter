@@ -1,5 +1,7 @@
 # Item Sorter
 
+![Item Sorter Logo](./item-sorter-logo.webp)
+
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 ## Table of Contents

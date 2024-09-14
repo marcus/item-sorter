@@ -1,3 +1,4 @@
+// ./index.js
 // Import the folder watcher to start monitoring
 const chokidar = require('chokidar');
 const path = require('path');
@@ -14,7 +15,7 @@ const args = process.argv.slice(2);
 args.forEach(arg => {
   if (arg.startsWith('--path=')) {
     downloadsFolder = arg.split('=')[1];
-    downloadsFolder = downloadsFolder.replace(/\\ /g, ' ');  // Handle escaped spaces like '\ '
+    downloadsFolder = downloadsFolder.replace(/\ /g, ' ');  // Handle escaped spaces like '\ '
     recentsFolder = path.join(downloadsFolder, 'Recents');
     aiLibraryFolder = path.join(downloadsFolder, 'AI Library');
     console.log(`Using custom folder path: ${downloadsFolder}`);
