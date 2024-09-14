@@ -15,7 +15,7 @@
 
 ## Overview
 
-**Item Sorter** Monitors your Downloads folder and watches for new files. When a new file appears, it intelligently categorizes and organizes these files into existing folders if it can find an appropriate one, or creates a new folder if needed. It uses the ChatGPT API to determine the appropriate folders.
+**Item Sorter** monitors your Downloads folder and watches for new files. When a new file or files appears, it intelligently categorizes and organizes them into existing folders if it can find an appropriate one, or it creates a new folder if needed. It uses the ChatGPT API to determine the appropriate folders.
 
 Files are managed in batches of up to 10, ensuring efficient processing and reduced API requests. Recent files are moved to a `Recents` folder, while older files are categorized and stored in sub folders under a folder called `AI Library`. Item Sorter ignores pre-existing and new folders and only operates in individual files.
 
