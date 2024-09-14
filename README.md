@@ -15,7 +15,9 @@
 
 ## Overview
 
-**Item Sorter** is a Node.js application designed to monitor a specified directory (defaulting to the `Downloads` folder) for new files. It intelligently categorizes and organizes these files by interacting with the ChatGPT API to suggest appropriate folders. Files are managed in batches of up to 10, ensuring efficient processing and reduced API requests. Recent files are moved to a `Recents` folder, while older files are categorized and stored in an `AI Library`.
+**Item Sorter** Monitors your Downloads folder and watches for new files. When a new file appears, it intelligently categorizes and organizes these files into existing folders if it can find an appropriate one, or creates a new folder if needed. It uses the ChatGPT API to determine the appropriate folders.
+
+Files are managed in batches of up to 10, ensuring efficient processing and reduced API requests. Recent files are moved to a `Recents` folder, while older files are categorized and stored in sub folders under a folder called `AI Library`. Item Sorter ignores pre-existing and new folders and only operates in individual files.
 
 ## Features
 
