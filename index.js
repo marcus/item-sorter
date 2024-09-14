@@ -36,25 +36,35 @@ const watcher = chokidar.watch(downloadsFolder, {
   persistent: true,
   ignoreInitial: true,
   depth: 0,
+  awaitWriteFinish: {
+    stabilityThreshold: 100,
+    pollInterval: 50,
+  }
 });
 
 let fileBatch = [];
 let batchTimeout = null;
 const BATCH_INTERVAL = 3000; // 3 seconds for batch window
+const MAX_BATCH_SIZE = 10;    // Maximum number of files per batch
 
 // Function to process the batch of files
-const processBatch = () => {
+const processBatch = async () => {
   if (fileBatch.length > 0) {
-    console.log(`Processing batch of ${fileBatch.length} files`);
+    const batchToProcess = fileBatch.slice(0, MAX_BATCH_SIZE);
+    fileBatch = fileBatch.slice(MAX_BATCH_SIZE);
+    console.log(`Processing batch of ${batchToProcess.length} files`);
     try {
-      FileSorter.sortFiles(fileBatch, recentsFolder); // Process the batch using the modified sortFiles
+      await FileSorter.sortFiles(batchToProcess, recentsFolder, aiLibraryFolder); // Process the batch
     } catch (error) {
       console.error(`Error processing batch: ${error}`);
     }
-    fileBatch = []; // Reset the batch
   }
-  clearTimeout(batchTimeout);
-  batchTimeout = null;
+  if (fileBatch.length > 0 && !batchTimeout) {
+    batchTimeout = setTimeout(processBatch, BATCH_INTERVAL);
+  } else {
+    clearTimeout(batchTimeout);
+    batchTimeout = null;
+  }
 };
 
 // Handle new files in Downloads
@@ -62,9 +72,14 @@ watcher.on('add', (filePath) => {
   console.log(`New file detected: ${filePath}`);
   fileBatch.push(filePath);
 
-  // If there's no timeout, start one to process the batch after a short delay
-  if (!batchTimeout) {
-    batchTimeout = setTimeout(processBatch, BATCH_INTERVAL);
+  // If batch size reached, process immediately
+  if (fileBatch.length >= MAX_BATCH_SIZE) {
+    processBatch();
+  } else {
+    // If there's no timeout, start one to process the batch after a short delay
+    if (!batchTimeout) {
+      batchTimeout = setTimeout(processBatch, BATCH_INTERVAL);
+    }
   }
 });
 
@@ -73,44 +88,46 @@ watcher.on('addDir', (dirPath) => {
   console.log(`Ignoring directory: ${dirPath}`);
 });
 
+// Handle watcher errors
+watcher.on('error', (error) => {
+  console.error(`Watcher error: ${error}`);
+});
+
 // Periodically check the Recents folder and move old files to AI Library
 const checkRecentsForOldFiles = () => {
-  fs.readdir(recentsFolder, (err, files) => {
+  fs.readdir(recentsFolder, async (err, files) => {
     if (err) {
       console.error(`Error reading Recents folder: ${err}`);
       return;
     }
 
-    const oldFilesBatch = [];
+    const oldFiles = [];
 
-    files.forEach(file => {
+    for (const file of files) {
       const filePath = path.join(recentsFolder, file);
 
       // Ignore .DS_Store or other hidden files
-      if (file === '.DS_Store' || fs.statSync(filePath).isDirectory()) return;
+      if (file === '.DS_Store' || fs.statSync(filePath).isDirectory()) continue;
 
-      fs.stat(filePath, (err, stats) => {
-        if (err) {
-          console.error(`Error reading file stats: ${err}`);
-          return;
-        }
-
+      try {
+        const stats = fs.statSync(filePath);
         const fileAge = Date.now() - stats.birthtimeMs;
         const threeDays = 3 * 24 * 60 * 60 * 1000;
 
         // If file is older than 3 days, move it to AI Library
         if (fileAge > threeDays) {
           console.log(`File ${file} is older than 3 days. Moving to AI Library...`);
-          oldFilesBatch.push(filePath);
+          oldFiles.push(filePath);
         }
-      });
-    });
+      } catch (statErr) {
+        console.error(`Error reading file stats for ${filePath}: ${statErr}`);
+      }
+    }
 
-    // Process old files as a batch if there are any
-    if (oldFilesBatch.length > 0) {
-      console.log(`Processing batch of ${oldFilesBatch.length} old files from Recents folder`);
+    // Process old files in batches
+    if (oldFiles.length > 0) {
       try {
-        FileSorter.sortFiles(oldFilesBatch, aiLibraryFolder); // Move the old files to the AI Library
+        await FileSorter.sortFiles(oldFiles, aiLibraryFolder, aiLibraryFolder); // Move the old files to the AI Library
       } catch (error) {
         console.error(`Error processing old files batch: ${error}`);
       }
@@ -120,3 +137,5 @@ const checkRecentsForOldFiles = () => {
 
 // Run the checkRecentsForOldFiles function every 1 hour (3600000ms)
 setInterval(checkRecentsForOldFiles, 3600000);
+
+console.log(`Watching for new files in: ${downloadsFolder}`);

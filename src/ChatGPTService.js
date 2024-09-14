@@ -18,7 +18,7 @@ const suggestFileCategories = async (fileNames, existingFolders) => {
         messages: [
           {
             role: 'system',
-            content: 'You are an assistant that helps organize files by suggesting appropriate folders based on file names. If applicable, please try to match the file to one of the existing folders rather than creating a new folder, but do not over-optimize. For example, images should not go in a Books folder, and PDFs should not be put into a generic Documents folder. It is of utmost importance that you ONLY respond with a single folder name per file, as the folder will be created based on your response. The folder name should be at most 5 words. Use fairly generic folder names. For example, for a file called 4runner.pdf, suggest the folder "Vehicles." For a file called The Seven Expectations of Great Managing, use the folder "Business Articles" to prevent excessive folder creation. If a file is a generic screenshot, use a folder called "Screenshots." Do not provide any preliminary description or return any text after the folder name. Respond in this exact format: filename: foldername with a newline between each file and folder. You MUST respond with a folder for each and every file and the response must be in that exact format'
+            content: `You are an assistant that helps organize files by suggesting appropriate folders based on file names. If applicable, please try to match the file to one of the existing folders rather than creating a new folder, but do not over-optimize. For example, images should not go in a Books folder, and PDFs should not be put into a generic Documents folder. It is of utmost importance that you ONLY respond with a single folder name per file, as the folder will be created based on your response. The folder name should be at most 5 words. Use fairly generic folder names. For example, for a file called 4runner.pdf, suggest the folder "Vehicles." For a file called The Seven Expectations of Great Managing, use the folder "Business Articles" to prevent excessive folder creation. If a file is a generic screenshot, use a folder called "Screenshots." Do not provide any preliminary description or return any text after the folder name. Respond in this exact format: filename: foldername with a newline between each file and folder. You MUST respond with a folder for each and every file and the response must be in that exact format`
           },
           {
             role: 'user',
@@ -36,19 +36,28 @@ const suggestFileCategories = async (fileNames, existingFolders) => {
     );
 
     // Log the full response for debugging
-    console.log(`Full ChatGPT response: ${JSON.stringify(response.data.choices[0].message.content)}`);
+    console.log(`Full ChatGPT response: ${response.data.choices[0].message.content}`);
 
-    // Parse the response: it should be in the format "filename: foldername"
+    // Parse the response: it should be in the format "filename: foldername" per line
     const lines = response.data.choices[0].message.content.trim().split('\n');
     const categories = lines.map(line => {
       const [fileName, folderName] = line.split(':').map(part => part.trim());
       return { fileName, folderName };
     });
 
-    return categories;
+    // Map categories back to the input fileNames to ensure order
+    const categoryMap = {};
+    categories.forEach(cat => {
+      categoryMap[cat.fileName] = cat.folderName;
+    });
+
+    return fileNames.map(fileName => ({
+      fileName,
+      folderName: categoryMap[fileName] || null
+    }));
   } catch (error) {
-    console.error('Error communicating with ChatGPT API:', error);
-    return fileNames.map(() => null); // Return null for each file if an error occurs
+    console.error('Error communicating with ChatGPT API:', error.response ? error.response.data : error.message);
+    return fileNames.map(() => ({ fileName: null, folderName: null })); // Return null for each file if an error occurs
   }
 };
 
