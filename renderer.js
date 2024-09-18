@@ -29,6 +29,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 
     console.log(`Selected paths: ${selectedPaths.join(', ')}`);
-    // Here you can call your existing logic to start watching the selected paths
+    // Start watching the selected paths
+    startWatching(selectedPaths);
+  });
+
+  function startWatching(paths) {
+    console.log(`Watching for new files in: ${paths.join(', ')}`);
+    // Implement your logic to start watching the directories here
   });
 });
