@@ -7,6 +7,9 @@ const { suggestFileCategories } = require('./ChatGPTService');
 let recentsFolder = path.join(process.env.HOME, 'Downloads', 'Recents');
 let aiLibraryFolder = path.join(process.env.HOME, 'Downloads', 'AI Library');
 
+// List of file extensions to exclude from being moved
+const excludedExtensions = ['.dng', '.dmg', '.pkg', '.mpkg', '.app']; // Add any other extensions you want to exclude
+
 // Sanitize folder names to remove invalid characters and capitalize words
 const sanitizeFolderName = (name) => {
   return name
@@ -41,11 +44,21 @@ const sortFiles = async (filePaths, recentsFolderPath, aiLibraryFolderPath) => {
 
   ensureFoldersExist();
 
+  // **Filter out excluded files**
+  const filteredFilePaths = filePaths.filter(filePath => {
+    const ext = path.extname(filePath).toLowerCase();
+    const isExcluded = excludedExtensions.includes(ext);
+    if (isExcluded) {
+      console.log(`Excluded file from sorting: ${path.basename(filePath)}`);
+    }
+    return !isExcluded;
+  });
+
   // Split files into recent and old
   const recentFiles = [];
   const oldFiles = [];
 
-  for (const filePath of filePaths) {
+  for (const filePath of filteredFilePaths) {
     if (isFileRecent(filePath)) {
       recentFiles.push(filePath);
     } else {

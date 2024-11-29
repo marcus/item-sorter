@@ -31,12 +31,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.log(`Selected paths: ${selectedPaths.join(', ')}`);
     // Start watching the selected paths
     startWatching(selectedPaths);
-  }
+  });
 
-});
 
   function startWatching(paths) {
     console.log(`Watching for new files in: ${paths.join(', ')}`);
     // Implement your logic to start watching the directories here
-  });
+  }
 });
