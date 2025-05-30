@@ -12,6 +12,7 @@
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Usage](#usage)
+- [Running in Background (Production)](#running-in-background-production)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -63,7 +64,7 @@ Files are managed in batches of up to 10, ensuring efficient processing and redu
 
    ```env
    OPENAI_API_KEY=your_openai_api_key_here
-   OPENAI_MODEL=gpt-3.5-turbo # Optional: Specify the model, defaults to 'gpt-3.5-turbo'
+   OPENAI_MODEL=gpt-4o-mini-2024-07-18
    ```
 
    > **Note:** Ensure that the `.env` file is included in your `.gitignore` to prevent sensitive information from being exposed.
@@ -104,6 +105,95 @@ node index.js --path="/Users/marcus/Documents/My Downloads"
      - **Recent Files:** Files less than or equal to 72 hours old are moved to the `Recents` folder.
      - **Older Files:** Files older than 72 hours are moved to the `AI Library` under the suggested categories.
    - **Scheduled Maintenance:** Every hour, the application checks the `Recents` folder and moves files older than three days to the `AI Library`.
+
+## Running in Background (Production)
+
+For continuous operation, you can use **PM2** (Process Manager 2) to run Item Sorter as a background service on macOS.
+
+### Installing PM2
+
+1. **Install PM2 globally**
+
+   ```bash
+   npm install -g pm2
+   ```
+
+### Starting with PM2
+
+1. **Start the application with PM2**
+
+   ```bash
+   pm2 start index.js --name "item-sorter"
+   ```
+
+   Or with a custom path:
+
+   ```bash
+   pm2 start index.js --name "item-sorter" -- --path="/path/to/your/custom/folder"
+   ```
+
+2. **Save the PM2 process list**
+
+   ```bash
+   pm2 save
+   ```
+
+3. **Set PM2 to start on system boot**
+
+   ```bash
+   pm2 startup
+   ```
+
+   Follow the instructions provided by PM2 to complete the startup configuration.
+
+### Managing the Background Process
+
+- **View process status:**
+  ```bash
+  pm2 status
+  ```
+
+- **View detailed process information:**
+  ```bash
+  pm2 describe item-sorter
+  ```
+
+- **View logs:**
+  ```bash
+  pm2 logs item-sorter
+  ```
+
+- **Restart the process:**
+  ```bash
+  pm2 restart item-sorter
+  ```
+
+- **Stop the process:**
+  ```bash
+  pm2 stop item-sorter
+  ```
+
+- **Remove the process:**
+  ```bash
+  pm2 delete item-sorter
+  ```
+
+- **Monitor CPU and memory usage:**
+  ```bash
+  pm2 monit
+  ```
+
+### Log Management
+
+PM2 automatically manages logs for your application:
+
+- **Error logs:** `~/.pm2/logs/item-sorter-error.log`
+- **Output logs:** `~/.pm2/logs/item-sorter-out.log`
+
+You can view the last 1000 lines of logs with:
+```bash
+pm2 logs item-sorter --lines 1000
+```
 
 ## Contributing
 

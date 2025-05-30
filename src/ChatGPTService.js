@@ -3,7 +3,7 @@ const axios = require('axios');
 require('dotenv').config();
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-3.5-turbo';
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini-2024-07-18';
 
 // Function to get file categorization suggestions from ChatGPT for multiple files
 const suggestFileCategories = async (fileNames, existingFolders) => {
