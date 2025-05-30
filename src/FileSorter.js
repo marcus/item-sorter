@@ -163,4 +163,108 @@ const isFileRecent = (filePath) => {
   }
 };
 
-module.exports = { sortFiles };
+// Re-categorize files in a folder based on ChatGPT suggestions
+const recategorizeFolder = async (folderPath) => {
+  console.log(`Re-categorizing files in folder: ${folderPath}`);
+  
+  // Check if folder exists
+  if (!fs.existsSync(folderPath)) {
+    console.error(`Folder does not exist: ${folderPath}`);
+    return;
+  }
+  
+  // Get all files in the folder
+  const files = fs.readdirSync(folderPath).filter(file => {
+    const filePath = path.join(folderPath, file);
+    return fs.statSync(filePath).isFile() && file !== '.DS_Store';
+  });
+  
+  if (files.length === 0) {
+    console.log(`No files found in folder: ${folderPath}`);
+    return;
+  }
+  
+  console.log(`Found ${files.length} files to re-categorize`);
+  
+  // Get parent folder to determine where to move files
+  const parentFolder = path.dirname(folderPath);
+  
+  // Get existing folders from parent directory
+  const existingFolders = fs.readdirSync(parentFolder).filter(item => {
+    const itemPath = path.join(parentFolder, item);
+    return item !== '.DS_Store' && fs.statSync(itemPath).isDirectory() && itemPath !== folderPath;
+  });
+  
+  // Split files into batches of 10
+  const fileBatches = chunkArray(files, 10);
+  
+  for (const batch of fileBatches) {
+    console.log(`Processing batch of ${batch.length} files for re-categorization`);
+    
+    // Get category suggestions for the batch
+    let categories;
+    try {
+      categories = await suggestFileCategories(batch, existingFolders);
+    } catch (error) {
+      console.error(`Error getting categories from ChatGPT: ${error}`);
+      continue; // Skip this batch on error
+    }
+    
+    for (let i = 0; i < batch.length; i++) {
+      const fileName = batch[i];
+      const filePath = path.join(folderPath, fileName);
+      const category = categories[i]?.folderName;
+      
+      if (!category) {
+        console.log(`No category suggestion for ${fileName}. Skipping.`);
+        continue;
+      }
+      
+      const sanitizedCategory = sanitizeFolderName(category);
+      
+      // Skip if the suggested category is the same as current folder
+      const currentFolderName = path.basename(folderPath);
+      if (sanitizedCategory.toLowerCase() === currentFolderName.toLowerCase()) {
+        console.log(`File ${fileName} already in correct category (${currentFolderName}). Skipping.`);
+        continue;
+      }
+      
+      // Determine destination folder
+      let destinationFolder;
+      // Use existing folder or create a new one
+      const folderToUse = existingFolders.find(folder => 
+        folder.toLowerCase() === sanitizedCategory.toLowerCase()
+      ) || sanitizedCategory;
+      
+      destinationFolder = path.join(parentFolder, folderToUse);
+      
+      if (!fs.existsSync(destinationFolder)) {
+        console.log(`Creating folder: ${destinationFolder}`);
+        try {
+          fs.mkdirSync(destinationFolder, { recursive: true });
+          existingFolders.push(folderToUse); // Update existing folders
+        } catch (err) {
+          console.error(`Error creating folder "${destinationFolder}": ${err}`);
+          continue;
+        }
+      }
+      
+      // Move the file to the destination folder
+      const destination = path.join(destinationFolder, fileName);
+      try {
+        await fs.promises.rename(filePath, destination);
+        console.log(`
+📂 Re-categorized: "${fileName}"
+   From: ${path.basename(folderPath)}
+   To:   ${folderToUse}
+`);
+      } catch (err) {
+        console.error(`Error moving file to ${destinationFolder}: ${err}`);
+      }
+    }
+  }
+  
+  console.log(`Re-categorization of folder ${folderPath} completed`);
+};
+
+module.exports = { sortFiles, recategorizeFolder };

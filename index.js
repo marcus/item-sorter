@@ -10,8 +10,11 @@ let downloadsFolder = path.join(process.env.HOME, 'Downloads');
 let recentsFolder = path.join(downloadsFolder, 'Recents');
 let aiLibraryFolder = path.join(downloadsFolder, 'AI Library');
 
-// Parse command-line arguments to get the custom path
+// Parse command-line arguments
 const args = process.argv.slice(2);
+let recategorize = false;
+let foldersToRecategorize = [];
+
 args.forEach(arg => {
   if (arg.startsWith('--path=')) {
     downloadsFolder = arg.split('=')[1];
@@ -19,8 +22,33 @@ args.forEach(arg => {
     recentsFolder = path.join(downloadsFolder, 'Recents');
     aiLibraryFolder = path.join(downloadsFolder, 'AI Library');
     console.log(`Using custom folder path: ${downloadsFolder}`);
+  } else if (arg === '--recategorize') {
+    recategorize = true;
+  } else if (recategorize && !arg.startsWith('--')) {
+    // If --recategorize flag is set, collect folder names
+    // Handle escaped spaces in folder names (e.g., Business\ Reports)
+    const folderName = arg.replace(/\ /g, ' ');
+    foldersToRecategorize.push(folderName);
   }
 });
+
+// Display help if requested
+if (args.includes('--help')) {
+  console.log(`
+Usage: node index.js [options] [folder_names...]
+
+Options:
+  --path=PATH       Set custom path for Downloads folder
+  --recategorize    Re-categorize files in specified folders
+  --help            Display this help message
+
+Examples:
+  node index.js --path=/Users/username/Downloads
+  node index.js --recategorize "AI Library/Business Reports"
+  node index.js --recategorize "AI Library/Screenshots" "AI Library/Misc"
+`);
+  process.exit(0);
+}
 
 // Ensure the folders exist before monitoring
 const ensureFolderExists = (folder) => {
@@ -139,4 +167,47 @@ const checkRecentsForOldFiles = () => {
 // Run the checkRecentsForOldFiles function every 1 hour (3600000ms)
 setInterval(checkRecentsForOldFiles, 3600000);
 
-console.log(`Watching for new files in: ${downloadsFolder}`);
+// Handle re-categorization if requested
+if (recategorize) {
+  if (foldersToRecategorize.length === 0) {
+    console.error('Error: No folders specified for re-categorization. Use --help for usage information.');
+    process.exit(1);
+  }
+  
+  (async () => {
+    console.log(`Starting re-categorization of ${foldersToRecategorize.length} folder(s)...`);
+    
+    for (const folderName of foldersToRecategorize) {
+      // Resolve full path based on the provided folder name
+      let folderPath;
+      
+      // Check if it's a relative path or absolute path
+      if (path.isAbsolute(folderName)) {
+        folderPath = folderName;
+      } else if (folderName.startsWith('AI Library/') || folderName.startsWith('AI Library\\')) {
+        // If it starts with 'AI Library/', it's relative to the AI Library folder
+        // Handle both normal and escaped slashes
+        const subPath = folderName.startsWith('AI Library/') 
+          ? folderName.substring('AI Library/'.length)
+          : folderName.substring('AI Library\\'.length);
+        folderPath = path.join(aiLibraryFolder, subPath);
+      } else {
+        // Otherwise, assume it's relative to the AI Library folder (not Downloads)
+        folderPath = path.join(aiLibraryFolder, folderName);
+      }
+      
+      console.log(`Processing folder: ${folderPath}`);
+      
+      try {
+        await FileSorter.recategorizeFolder(folderPath);
+      } catch (error) {
+        console.error(`Error re-categorizing folder ${folderPath}: ${error}`);
+      }
+    }
+    
+    console.log('Re-categorization completed. Exiting...');
+    process.exit(0);
+  })();
+} else {
+  console.log(`Watching for new files in: ${downloadsFolder}`);
+}

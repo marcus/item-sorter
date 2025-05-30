@@ -27,6 +27,7 @@ Files are managed in batches of up to 10, ensuring efficient processing and redu
 - **Real-time Folder Monitoring:** Utilizes `chokidar` to watch for new files in the specified directory.
 - **Batch Processing:** Groups incoming files into batches of up to 10 for efficient API interactions.
 - **Smart Categorization:** Leverages ChatGPT to suggest suitable categories based on file names and existing folders.
+- **Re-categorization:** Allows re-categorizing files in existing folders for better organization.
 - **Automated Organization:** Moves recent files to a `Recents` folder and older files to categorized folders within an `AI Library`.
 - **Customizable Paths:** Allows users to specify a custom directory path via command-line arguments.
 - **Scheduled Maintenance:** Periodically checks and moves files older than three days from `Recents` to `AI Library`.
@@ -75,11 +76,22 @@ Files are managed in batches of up to 10, ensuring efficient processing and redu
 
 - **Default Directory:** `Downloads` folder in the user's home directory.
 - **Custom Directory:** Use the `--path` argument to specify a different directory.
+- **Re-categorization Mode:** Use the `--recategorize` flag followed by folder names to re-categorize files.
 
-### Example
+### Examples
 
 ```bash
+# Use a custom directory
 node index.js --path="/Users/marcus/Documents/My Downloads"
+
+# Re-categorize a specific folder within AI Library
+node index.js --recategorize "Business Reports"
+
+# You can also use the full path
+node index.js --recategorize "AI Library/Business Reports"
+
+# Re-categorize multiple folders
+node index.js --recategorize "Screenshots" "Misc"
 ```
 
 ## Usage
@@ -105,6 +117,7 @@ node index.js --path="/Users/marcus/Documents/My Downloads"
      - **Recent Files:** Files less than or equal to 72 hours old are moved to the `Recents` folder.
      - **Older Files:** Files older than 72 hours are moved to the `AI Library` under the suggested categories.
    - **Scheduled Maintenance:** Every hour, the application checks the `Recents` folder and moves files older than three days to the `AI Library`.
+   - **Re-categorization:** When using the `--recategorize` flag, the app analyzes files in the specified folders and suggests better categorizations based on file names and existing folder structure.
 
 ## Running in Background (Production)
 
