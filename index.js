@@ -71,45 +71,57 @@ const watcher = chokidar.watch(downloadsFolder, {
   }
 });
 
-let fileBatch = [];
-let batchTimeout = null;
-const BATCH_INTERVAL = 3000; // 3 seconds for batch window
-const MAX_BATCH_SIZE = 10;    // Maximum number of files per batch
+// Pending files queue - tracks files waiting for the 1-hour delay
+const pendingFiles = new Map(); // filePath → detectionTimestamp
 
-// Function to process the batch of files
-const processBatch = async () => {
-  if (fileBatch.length > 0) {
-    const batchToProcess = fileBatch.slice(0, MAX_BATCH_SIZE);
-    fileBatch = fileBatch.slice(MAX_BATCH_SIZE);
-    console.log(`Processing batch of ${batchToProcess.length} files`);
+// Timing constants
+const PENDING_DELAY = 60 * 60 * 1000;   // 1 hour before moving files
+const CHECK_INTERVAL = 5 * 60 * 1000;   // Check every 5 minutes
+const MAX_BATCH_SIZE = 10;              // Maximum files per batch
+
+// Function to process files that have aged past the delay
+const processPendingFiles = async () => {
+  const now = Date.now();
+  const readyFiles = [];
+
+  // Find files that have been pending for 1+ hour
+  for (const [filePath, timestamp] of pendingFiles) {
+    if (now - timestamp >= PENDING_DELAY) {
+      // Verify file still exists before adding to ready list
+      if (fs.existsSync(filePath)) {
+        readyFiles.push(filePath);
+      } else {
+        console.log(`File no longer exists, removing from pending: ${filePath}`);
+      }
+      pendingFiles.delete(filePath);
+    }
+  }
+
+  if (readyFiles.length === 0) {
+    return;
+  }
+
+  console.log(`Processing ${readyFiles.length} file(s) after 1-hour delay`);
+
+  // Process in batches of MAX_BATCH_SIZE
+  for (let i = 0; i < readyFiles.length; i += MAX_BATCH_SIZE) {
+    const batch = readyFiles.slice(i, i + MAX_BATCH_SIZE);
     try {
-      await FileSorter.sortFiles(batchToProcess, recentsFolder, aiLibraryFolder); // Process the batch
+      await FileSorter.sortFiles(batch, recentsFolder, aiLibraryFolder);
     } catch (error) {
       console.error(`Error processing batch: ${error}`);
     }
   }
-  if (fileBatch.length > 0 && !batchTimeout) {
-    batchTimeout = setTimeout(processBatch, BATCH_INTERVAL);
-  } else {
-    clearTimeout(batchTimeout);
-    batchTimeout = null;
-  }
 };
 
-// Handle new files in Downloads
-watcher.on('add', (filePath) => {
-  console.log(`New file detected: ${filePath}`);
-  fileBatch.push(filePath);
+// Start periodic check for aged pending files
+setInterval(processPendingFiles, CHECK_INTERVAL);
 
-  // If batch size reached, process immediately
-  if (fileBatch.length >= MAX_BATCH_SIZE) {
-    processBatch();
-  } else {
-    // If there's no timeout, start one to process the batch after a short delay
-    if (!batchTimeout) {
-      batchTimeout = setTimeout(processBatch, BATCH_INTERVAL);
-    }
-  }
+// Handle new files in Downloads - add to pending queue
+watcher.on('add', (filePath) => {
+  console.log(`New file detected (will process in ~1 hour): ${filePath}`);
+  pendingFiles.set(filePath, Date.now());
+  console.log(`Pending files count: ${pendingFiles.size}`);
 });
 
 // Handle new directories
